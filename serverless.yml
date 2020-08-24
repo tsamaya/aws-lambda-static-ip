@@ -2,7 +2,7 @@ service: aws-lambda-static-ip
 
 provider:
   name: aws
-  runtime: nodejs6.10
+  runtime: nodejs12.x
   stage: ${env:STAGE}
   region: ${env:REGION}
   versionFunctions: false
@@ -35,7 +35,15 @@ functions:
   caller:
     environment:
       URI:
-        Fn::Join: ['', [https://, Ref: ApiGatewayRestApi, '.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}/log']]
+        Fn::Join:
+          [
+            '',
+            [
+              https://,
+              Ref: ApiGatewayRestApi,
+              '.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}/log',
+            ],
+          ]
     handler: functions/caller/caller.handler
     events:
       - http:
@@ -46,16 +54,16 @@ resources:
   Resources:
     # Resources created according to blog post:
     # http://techblog.financialengines.com/2016/09/26/aws-lambdas-with-a-static-outgoing-ip/
-    
+
     # Step 1: Create a new VPC
     VPCStaticIP:
       Type: AWS::EC2::VPC
-      Properties: 
+      Properties:
         CidrBlock: 11.0.0.0/16
         Tags:
           - Key: Name
             Value: ${self:service}-${self:provider.stage}-vpc
-    
+
     # Step 2: Create 2 Subnets
     SubnetPublic:
       Type: AWS::EC2::Subnet
@@ -78,7 +86,7 @@ resources:
             Value: ${self:service}-${self:provider.stage}-private-subnet
         VpcId:
           Ref: VPCStaticIP
-    
+
     # Step 3: Create an Internet Gateway
     InternetGateway:
       Type: AWS::EC2::InternetGateway
@@ -95,7 +103,7 @@ resources:
           Ref: InternetGateway
         VpcId:
           Ref: VPCStaticIP
-  
+
     # Step 4: Create a public Route Table and Assign it to our public route
     RouteTablePublic:
       Type: AWS::EC2::RouteTable
@@ -105,7 +113,7 @@ resources:
         Tags:
           - Key: Name
             Value: ${self:service}-${self:provider.stage}-public-route
-  
+
     RoutePublic:
       Type: AWS::EC2::Route
       Properties:
@@ -114,7 +122,7 @@ resources:
           Ref: InternetGateway
         RouteTableId:
           Ref: RouteTablePublic
-  
+
     SubnetRouteTableAssociationPublic:
       Type: AWS::EC2::SubnetRouteTableAssociation
       Properties:
@@ -122,14 +130,14 @@ resources:
           Ref: RouteTablePublic
         SubnetId:
           Ref: SubnetPublic
-    
+
     # Step 5: Create a NAT Gateway
     # Before creating NAT Gateway, we need to create Elastic IP with vpc scope
     EIP:
       Type: AWS::EC2::EIP
       Properties:
         Domain: vpc
-  
+
     NatGateway:
       Type: AWS::EC2::NatGateway
       Properties:
